@@ -1,6 +1,6 @@
-#include <Arduino.h>
-#include "WiFi_Reader.h"
 #include "ArduinoJson.h"
+#include "WiFi_Reader.h"
+#include <Arduino.h>
 
 // Fetch interval in milliseconds
 const unsigned long FETCH_INTERVAL = 100;
@@ -13,7 +13,7 @@ void WiFiSetup() {
   Serial.println("Connecting to WiFi...");
 
   // Connect to WiFi
-  WiFiDrive::begin("Airtel_X25A_72F5", "58BF8F59", "192.168.1.100", 5000);
+  WiFiDrive::begin("Airtel_X25A_72F5", "58BF8F59", "192.168.1.165", 5050);
 
   // Print ESP32 IP
   Serial.print("ESP32 IP: ");
@@ -22,14 +22,24 @@ void WiFiSetup() {
   // Test connection to server
   Serial.println("Pinging server...");
   WiFiClient client;
-  if (!client.connect("192.168.1.100", 5000)) {
+  bool connected = false;
+
+  for (int i = 0; i < 5; i++) {
+    if (client.connect("192.168.1.165", 5050)) {
+      connected = true;
+      break;
+    }
+    Serial.println("Retry connection...");
+    delay(500);
+  }
+
+  if (!connected) {
     Serial.println("Cannot connect to server!");
   } else {
     Serial.println("Server reachable!");
     client.stop(); // close connection
   }
 }
-
 
 // ----------------------------
 // Non-blocking fetch from PC

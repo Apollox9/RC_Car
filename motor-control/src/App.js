@@ -8,6 +8,7 @@ function App() {
   const [speed, setSpeed] = useState(0);                   // actual smoothed speed
   const [steering, setSteering] = useState(0);             // actual smoothed steering
   const [direction, setDirection] = useState("neutral");
+  const [isCarConnected, setIsCarConnected] = useState(false);
 
   const [maxSpeed, setMaxSpeed] = useState(1);           // slider to scale speed
   const [steeringSensitivity, setSteeringSensitivity] = useState(1); // slider scale steering
@@ -19,6 +20,17 @@ function App() {
   // ----- Handle key presses -----
   const handleKeyDown = (e) => { keysPressed.current[e.key] = true; };
   const handleKeyUp = (e) => { keysPressed.current[e.key] = false; };
+
+  // ----- Poll for Connection Status -----
+  useEffect(() => {
+    const statusInterval = setInterval(() => {
+      fetch("http://192.168.1.165:5050/status")
+        .then(res => res.json())
+        .then(data => setIsCarConnected(data.car_connected))
+        .catch(err => setIsCarConnected(false));
+    }, 1000); // Check every 1 second
+    return () => clearInterval(statusInterval);
+  }, []);
 
   // ----- Main update loop -----
   useEffect(() => {
@@ -62,7 +74,7 @@ function App() {
 
       // --- Send JSON to ESP32 ---
       if (dir !== "neutral") {
-        fetch("http://192.168.1.100:5000/data", {
+        fetch("http://192.168.1.165:5050/data", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ direction: dir, speed: speed, steering: steering }),
@@ -87,6 +99,20 @@ function App() {
     <div className="App">
       <h1>ESP32 Smooth Motor Control</h1>
 
+      {/* Connection Status Indicator */}
+      <div style={{
+        padding: "10px",
+        marginBottom: "20px",
+        backgroundColor: isCarConnected ? "#d4edda" : "#f8d7da",
+        color: isCarConnected ? "#155724" : "#721c24",
+        border: `1px solid ${isCarConnected ? "#c3e6cb" : "#f5c6cb"}`,
+        borderRadius: "5px",
+        display: "inline-block"
+      }}>
+        <strong>Status: </strong>
+        {isCarConnected ? "Connected (Car Online)" : "Disconnected (Car Offline)"}
+      </div>
+
       <p>Direction: {direction}</p>
       <p>Speed: {speed.toFixed(2)}</p>
       <p>Steering: {steering.toFixed(2)}</p>
@@ -96,18 +122,18 @@ function App() {
         <div>
           <label>Max Speed: {maxSpeed.toFixed(2)}</label>
           <input type="range" min="0" max="1" step="0.01"
-            value={maxSpeed} onChange={(e) => setMaxSpeed(parseFloat(e.target.value))}/>
+            value={maxSpeed} onChange={(e) => setMaxSpeed(parseFloat(e.target.value))} />
         </div>
         <div>
           <label>Steering Sensitivity: {steeringSensitivity.toFixed(2)}</label>
           <input type="range" min="0" max="1" step="0.01"
-            value={steeringSensitivity} onChange={(e) => setSteeringSensitivity(parseFloat(e.target.value))}/>
+            value={steeringSensitivity} onChange={(e) => setSteeringSensitivity(parseFloat(e.target.value))} />
         </div>
       </div>
 
       {/* Visual bars */}
       <div style={{ marginTop: "20px", width: "300px" }}>
-        <div style={{ width: `${speed*100}%`, height: "20px", background: "green", marginBottom: "5px" }}>Speed</div>
+        <div style={{ width: `${speed * 100}%`, height: "20px", background: "green", marginBottom: "5px" }}>Speed</div>
         <div style={{ width: "100%", height: "20px", background: "#ddd", position: "relative" }}>
           <div style={{
             position: "absolute",

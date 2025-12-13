@@ -1,27 +1,27 @@
-#include <Arduino.h>
 #include "WiFi_Reader.h"
+#include <Arduino.h>
 // ==========================================================
 #define PWM_FREQ 5000
-#define PWM_RES 8   // 8-bit resolution
+#define PWM_RES 8 // 8-bit resolution
 #define CH_LEFT 0
 #define CH_RIGHT 1
 // MOTOR PINS
 // ==========================================================
-#define IN1_L  14
-#define IN2_L  27
-#define EN_L   26   // PWM Left
+#define IN1_L 14
+#define IN2_L 27
+#define EN_L 26 // PWM Left
 
-#define IN1_R  25
-#define IN2_R  33
-#define EN_R   32   // PWM Right
+#define IN1_R 25
+#define IN2_R 33
+#define EN_R 32 // PWM Right
 
 // ==========================================================
 // ULTRASONIC SENSORS
 // ==========================================================
-#define TRIG_FRONT  4
-#define ECHO_FRONT  2
-#define TRIG_BACK   18
-#define ECHO_BACK   19
+#define TRIG_FRONT 4
+#define ECHO_FRONT 2
+#define TRIG_BACK 18
+#define ECHO_BACK 19
 
 bool Obstacle_detection_mode = false;
 float stopDistance = 20.0; // cm safe distance
@@ -29,10 +29,10 @@ float stopDistance = 20.0; // cm safe distance
 // ==========================================================
 // DRIVING STATE
 // ==========================================================
-enum DriveMode {MODE_NEUTRAL, MODE_DRIVE};
+enum DriveMode { MODE_NEUTRAL, MODE_DRIVE };
 DriveMode currentMode = MODE_NEUTRAL;
 
-float currentLeftPWM  = 0;
+float currentLeftPWM = 0;
 float currentRightPWM = 0;
 float rampSpeed = 0.03;
 unsigned long lastRampTime = 0;
@@ -52,9 +52,7 @@ void setPWM(int channel, float value) {
   ledcWrite(channel, pwmVal);
 }
 
-void writePWM(int pin, int value) {
-  analogWrite(pin, value);
-}
+void writePWM(int pin, int value) { analogWrite(pin, value); }
 
 void setupPWM() {
   ledcSetup(CH_LEFT, PWM_FREQ, PWM_RES);
@@ -84,11 +82,10 @@ void setup() {
   pinMode(ECHO_BACK, INPUT);
 
   Serial.println("System Ready.");
-  //InputSetup();
-  //WiFiSetup();
+  // InputSetup();
+  WiFiSetup();
   setupPWM();
 }
-
 
 // ==========================================================
 // ULTRASONIC SENSOR
@@ -101,11 +98,11 @@ float readUltrasonic(int trig, int echo) {
   digitalWrite(trig, LOW);
 
   long duration = pulseIn(echo, HIGH, 25000);
-  if (duration == 0) return 999;
+  if (duration == 0)
+    return 999;
 
   return duration * 0.0343 / 2.0;
 }
-
 
 // ==========================================================
 // MOTOR CONTROL
@@ -118,12 +115,10 @@ void setMotorRaw(bool left, int direction, float pwm) {
   if (direction == 1) {
     digitalWrite(IN1, HIGH);
     digitalWrite(IN2, LOW);
-  }
-  else if (direction == -1) {
+  } else if (direction == -1) {
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, HIGH);
-  }
-  else {
+  } else {
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, LOW);
   }
@@ -132,48 +127,49 @@ void setMotorRaw(bool left, int direction, float pwm) {
   writePWM(PWM_PIN, pwmVal);
 }
 
-
 // ==========================================================
 // PARK MODE
 // ==========================================================
 void Park() {
   currentMode = MODE_NEUTRAL;
 
-  setMotorRaw(true,  0, 0);
+  setMotorRaw(true, 0, 0);
   setMotorRaw(false, 0, 0);
 
-  currentLeftPWM  = 0;
+  currentLeftPWM = 0;
   currentRightPWM = 0;
 
   Serial.println("MODE: NEUTRAL (motors stopped)");
 }
 
-
 // ==========================================================
 // RAMPING
 // ==========================================================
 float rampTo(float current, float target) {
-  if (millis() - lastRampTime < 10) return current;
+  if (millis() - lastRampTime < 10)
+    return current;
   lastRampTime = millis();
 
-  if (current < target) current += rampSpeed;
-  else if (current > target) current -= rampSpeed;
+  if (current < target)
+    current += rampSpeed;
+  else if (current > target)
+    current -= rampSpeed;
 
   return constrain(current, 0, 1);
 }
-
 
 // ==========================================================
 // DRIVE FUNCTION
 // ==========================================================
 void Drive(String direction, float SpeedFactor, float SteeringFactor) {
 
-  if (currentMode == MODE_NEUTRAL) return;
+  if (currentMode == MODE_NEUTRAL)
+    return;
 
   // Safety
   if (Obstacle_detection_mode) {
     float front = readUltrasonic(TRIG_FRONT, ECHO_FRONT);
-    float back  = readUltrasonic(TRIG_BACK, ECHO_BACK);
+    float back = readUltrasonic(TRIG_BACK, ECHO_BACK);
 
     if (direction == "forward" && front < stopDistance) {
       Serial.println("Front Blocked!");
@@ -195,25 +191,26 @@ void Drive(String direction, float SpeedFactor, float SteeringFactor) {
     float derivative = error - pidLastErr;
     pidLastErr = error;
 
-    SteeringFactor = constrain(Kp * error + Ki * pidIntegral + Kd * derivative, -1, 1);
+    SteeringFactor =
+        constrain(Kp * error + Ki * pidIntegral + Kd * derivative, -1, 1);
   }
 
-  float leftTarget  = SpeedFactor * (1 - SteeringFactor);
+  float leftTarget = SpeedFactor * (1 - SteeringFactor);
   float rightTarget = SpeedFactor * (1 + SteeringFactor);
 
-  leftTarget  = constrain(leftTarget,  0.0, 1.0);
+  leftTarget = constrain(leftTarget, 0.0, 1.0);
   rightTarget = constrain(rightTarget, 0.0, 1.0);
 
-  currentLeftPWM  = rampTo(currentLeftPWM,  leftTarget);
+  currentLeftPWM = rampTo(currentLeftPWM, leftTarget);
   currentRightPWM = rampTo(currentRightPWM, rightTarget);
 
   int dir = (direction == "forward") ? 1 : -1;
 
-  setMotorRaw(true,  dir, currentLeftPWM);
+  setMotorRaw(true, dir, currentLeftPWM);
   setMotorRaw(false, dir, currentRightPWM);
 
-  Serial.printf("Drive %s  L=%.2f  R=%.2f\n",
-                direction.c_str(), currentLeftPWM, currentRightPWM);
+  Serial.printf("Drive %s  L=%.2f  R=%.2f\n", direction.c_str(), currentLeftPWM,
+                currentRightPWM);
 }
 
 // Direct motor drive function
@@ -246,7 +243,6 @@ void DriveMotorsDirect(float leftSpeed, float rightSpeed) {
   setPWM(CH_RIGHT, abs(rightSpeed));
 }
 
-
 // ==========================================================
 // MAIN LOOP
 // ==========================================================
@@ -255,26 +251,25 @@ const unsigned long INTERVAL = 50; // 50 ms
 int step = 0;
 
 void loop() {
-  DriveMotorsDirect(-1,-1);
-  // unsigned long now = millis();
+  unsigned long now = millis();
 
-  // // Update sensors, WiFi, PID every loop
-  // //WiFiLoop();
-  // //InputLoop();
+  // Update sensors, WiFi, PID every loop
+  WiFiLoop();
+  // InputLoop();
 
-  // // Run motor sequence every INTERVAL
-  // if (now - lastUpdate >= INTERVAL) {
-  //   lastUpdate = now;
+  // Run motor sequence every INTERVAL
+  if (now - lastUpdate >= INTERVAL) {
+    lastUpdate = now;
 
-  //   switch(step) {
-  //     case 0: Drive("forward", 0.5, 0.0); break;
-  //     case 1: Drive("forward", 0.6, -0.5); break;
-  //     case 2: Drive("forward", 0.6, 0.5); break;
-  //     case 3: Park(); break;
-  //   }
+    //   switch(step) {
+    //     case 0: Drive("forward", 0.5, 0.0); break;
+    //     case 1: Drive("forward", 0.6, -0.5); break;
+    //     case 2: Drive("forward", 0.6, 0.5); break;
+    //     case 3: Park(); break;
+    //   }
 
-  //   step = (step + 1) % 4;
-  // }
+    //   step = (step + 1) % 4;
+    // }
 
-  // Loop runs as fast as possible
-}
+    // Loop runs as fast as possible
+  }
