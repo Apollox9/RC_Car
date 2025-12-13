@@ -1,6 +1,7 @@
 #ifndef WIFI_READER_H
 #define WIFI_READER_H
 
+#include <Arduino.h>
 #include <HTTPClient.h>
 #include <WiFi.h>
 
@@ -61,10 +62,12 @@ private:
         Serial.print("HTTP GET failed, code: ");
         Serial.println(httpCode);
         Serial.println(http.errorToString(httpCode).c_str());
+        _latestData = ""; // SAFETY: Stop car on error
       }
       http.end();
     } else {
       Serial.println("Unable to connect (http.begin failed)");
+      _latestData = ""; // SAFETY: Stop car on error
     }
   }
 

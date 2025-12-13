@@ -14,6 +14,7 @@ current_command = {
 
 # Track when the ESP32 last fetched data
 last_esp_activity = 0
+last_client_activity = 0
 
 @app.before_request
 def log_request_info():
@@ -21,19 +22,28 @@ def log_request_info():
 
 @app.route('/data', methods=['GET', 'POST'])
 def handle_data():
-    global current_command, last_esp_activity
+    global current_command, last_esp_activity, last_client_activity
     
     if request.method == 'POST':
         # Web app sending new command
         data = request.json
         if data:
             current_command = data
-            # print(f"Received Command: {current_command}") # Reduced noise
+            last_client_activity = time.time()
         return jsonify({"status": "ok"})
     
     elif request.method == 'GET':
         # Car polling for command - update heartbeat
         last_esp_activity = time.time()
+        
+        # FAILSAFE: If client hasn't sent data in 2 seconds, stop the car
+        if time.time() - last_client_activity > 2.0:
+            current_command = {
+                "direction": "neutral",
+                "speed": 0,
+                "steering": 0
+            }
+            
         return jsonify(current_command)
 
 @app.route('/status', methods=['GET'])
