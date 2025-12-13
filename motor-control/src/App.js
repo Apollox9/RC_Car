@@ -73,13 +73,12 @@ function App() {
       });
 
       // --- Send JSON to ESP32 ---
-      if (dir !== "neutral") {
-        fetch("http://192.168.1.165:5050/data", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ direction: dir, speed: speed, steering: steering }),
-        }).catch(err => console.log("ESP32 not reachable:", err));
-      }
+      // ALWAYS send to ensure we send the 'neutral'/stop command
+      fetch("http://192.168.1.165:5050/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ direction: dir, speed: speed, steering: steering }),
+      }).catch(err => console.log("ESP32 not reachable:", err));
 
     }, 50); // 50ms update interval
     return () => clearInterval(interval);

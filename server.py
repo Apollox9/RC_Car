@@ -29,6 +29,7 @@ def handle_data():
         data = request.json
         if data:
             current_command = data
+            print(f" >>> COMMAND RECEIVED: {current_command}")
             last_client_activity = time.time()
         return jsonify({"status": "ok"})
     
