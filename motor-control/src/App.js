@@ -74,10 +74,11 @@ function App() {
 
       // --- Send JSON to ESP32 ---
       // ALWAYS send to ensure we send the 'neutral'/stop command
+      // Use spdTarget and steerTarget directly (not state values which are stale due to closure)
       fetch("http://192.168.1.165:5050/data", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ direction: dir, speed: speed, steering: steering }),
+        body: JSON.stringify({ direction: dir, speed: spdTarget, steering: steerTarget }),
       }).catch(err => console.log("ESP32 not reachable:", err));
 
     }, 50); // 50ms update interval
