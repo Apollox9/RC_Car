@@ -252,7 +252,7 @@ int step = 0;
 
 void loop() {
   unsigned long now = millis();
-
+    DriveMotorsDirect(1, 1);
   // Update sensors, WiFi, PID every loop
   WiFiLoop();
   // InputLoop();

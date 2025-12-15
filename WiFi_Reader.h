@@ -91,5 +91,6 @@ unsigned long WiFiDrive::_lastFetch = 0;
 String WiFiDrive::_latestData = "";
 void WiFiLoop();
 void WiFiSetup();
+void DriveMotorsArcade(String direction, float speed, float steer);
 
 #endif

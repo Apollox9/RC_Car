@@ -4,7 +4,49 @@
 
 // Fetch interval in milliseconds
 const unsigned long FETCH_INTERVAL = 100;
+//Helper
+float clampf(float v, float minVal, float maxVal) {
+  if (v < minVal) return minVal;
+  if (v > maxVal) return maxVal;
+  return v;
+}
+//Drive
+void DriveMotorsArcade(String direction, float speed, float steer) {
+  // Clamp inputs
+  speed = clampf(speed, 0.0f, 1.0f);
+  steer = clampf(steer, -1.0f, 1.0f);
 
+  // Convert direction + speed to signed throttle
+  float throttle = 0.0f;
+
+  if (direction == "forward") {
+    throttle = speed;
+  } 
+  else if (direction == "reverse") {
+    throttle = -speed;
+  } 
+  else { // "neutral"
+    throttle = 0.0f;
+  }
+
+  // Differential mixing
+  float left  = throttle + steer;
+  float right = throttle - steer;
+
+  // Normalize so we never exceed [-1, 1]
+  float maxMag = max(abs(left), abs(right));
+  if (maxMag > 1.0f) {
+    left  /= maxMag;
+    right /= maxMag;
+  }
+
+  // Drive motors
+  Serial.print("left value: ");
+  Serial.print(left);  
+  Serial.print(" right value: ");
+  Serial.println(right);
+  DriveMotorsDirect(left, right);
+}
 // ----------------------------
 // Initialize WiFi connection
 // Call once in main setup()
@@ -54,22 +96,36 @@ void WiFiLoop() {
   if (jsonCmd.length() > 0) {
     StaticJsonDocument<200> doc;
     DeserializationError error = deserializeJson(doc, jsonCmd);
-    if (!error) {
-      String dir = doc["direction"] | "neutral"; // forward, reverse, neutral
-      float speed = doc["speed"] | 0.0;          // 0.0 to 1.0
-      float steer = doc["steering"] | 0.0;       // -1.0 to 1.0
+      // if (error) {
+      //   Serial.print("deserializeJson() failed: ");
+      //   Serial.println(error.c_str());
+      //   return;
+      // }
 
-      // Use your existing motor functions
-      if (dir == "neutral") {
-        Park();
+      // serializeJson(doc, Serial);
+      // Serial.println();  // newline    
+      if (!error) {
+        // String dir = doc["direction"] | "neutral"; // forward, reverse, neutral
+        // float speed = doc["speed"] | 0.0;          // 0.0 to 1.0
+        // float steer = doc["steering"] | 0.0;       // -1.0 to 1.0
+        String dir = doc["direction"].as<String>(); // forward, reverse, neutral
+        float speed = doc["speed"].as<float>();          // 0.0 to 1.0
+        float steer = doc["steering"].as<float>();       // -1.0 to 1.0        
+
+        // Use your existing motor functions
+        if (dir == "neutral") {
+          Park();
+        } else {
+          //Drive(dir, speed, steer);
+          DriveMotorsArcade(dir, speed, steer);
+        }
       } else {
-        Drive(dir, speed, steer);
+        Serial.println("JSON parse error");
       }
-    } else {
-      Serial.println("JSON parse error");
-    }
   }
 
   // Tiny delay to yield
   delay(1);
 }
+
+
