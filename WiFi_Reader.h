@@ -10,7 +10,7 @@
 // ==========================================================
 #define WIFI_SSID "Airtel_X25A_72F5"
 #define WIFI_PASSWORD "58BF8F59"
-#define SERVER_IP "192.168.1.165"
+#define SERVER_IP "192.168.1.140"
 #define SERVER_PORT 5050
 #define DATA_ENDPOINT "/data"
 

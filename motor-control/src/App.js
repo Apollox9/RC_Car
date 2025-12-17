@@ -24,7 +24,7 @@ function App() {
   // ----- Poll for Connection Status -----
   useEffect(() => {
     const statusInterval = setInterval(() => {
-      fetch("http://192.168.1.165:5050/status")
+      fetch("http://192.168.1.140:5050/status")
         .then(res => res.json())
         .then(data => setIsCarConnected(data.car_connected))
         .catch(err => setIsCarConnected(false));
@@ -75,7 +75,7 @@ function App() {
       // --- Send JSON to ESP32 ---
       // ALWAYS send to ensure we send the 'neutral'/stop command
       // Use spdTarget and steerTarget directly (not state values which are stale due to closure)
-      fetch("http://192.168.1.165:5050/data", {
+      fetch("http://192.168.1.140:5050/data", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ direction: dir, speed: spdTarget, steering: steerTarget }),

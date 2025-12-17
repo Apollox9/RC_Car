@@ -281,14 +281,15 @@ void setup() {
   pinMode(TRIG_BACK, OUTPUT);
   pinMode(ECHO_BACK, INPUT);
 
+  // Initialize WiFi connection
+  WiFiSetup();
+
   // Initialize watchdog timer for safety
+  // Moved to end of setup to prevent timeout during WiFi connection
   esp_task_wdt_init(WATCHDOG_TIMEOUT_S, true); // Enable panic on timeout
   esp_task_wdt_add(NULL);                      // Add current task to watchdog
   Serial.printf("[Watchdog] Initialized with %d second timeout\n",
                 WATCHDOG_TIMEOUT_S);
-
-  // Initialize WiFi connection
-  WiFiSetup();
 
   Serial.println("[System] Initialization complete - Ready!");
   Serial.println("==========================================\n");
