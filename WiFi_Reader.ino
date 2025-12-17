@@ -74,23 +74,38 @@ void WiFiLoop() {
 
   // Get latest JSON command
   String jsonCmd = WiFiDrive::getLatestData();
-  if (jsonCmd.length() > 0) {
-    StaticJsonDocument<200> doc;
-    DeserializationError error = deserializeJson(doc, jsonCmd);
-    if (!error) {
-      String dir = doc["direction"] | "neutral"; // forward, reverse, neutral
-      float speed = doc["speed"] | 0.0;          // 0.0 to 1.0
-      float steer = doc["steering"] | 0.0;       // -1.0 to 1.0
+  if (jsonCmd.length() == 0) {
+    return; // No data to process
+  }
 
-      // Use your existing motor functions
-      if (dir == "neutral") {
-        Park();
-      } else {
-        Drive(dir, speed, steer);
-      }
-    } else {
-      Serial.println("JSON parse error");
-    }
+  // Parse JSON command
+  StaticJsonDocument<256> doc;
+  DeserializationError error = deserializeJson(doc, jsonCmd);
+
+  if (error) {
+    Serial.print("[JSON] Parse error: ");
+    Serial.println(error.c_str());
+    return;
+  }
+
+  // Extract values with defaults
+  const char *dirRaw = doc["direction"] | "neutral";
+  String dir = String(dirRaw);
+  float speed = doc["speed"] | 0.0f;
+  float steer = doc["steering"] | 0.0f;
+
+  // Validate input ranges
+  speed = constrain(speed, 0.0f, 1.0f);
+  steer = constrain(steer, -1.0f, 1.0f);
+
+  // Execute motor command
+  if (dir == "neutral" || speed < 0.01f) {
+    Park();
+  } else if (dir == "forward" || dir == "reverse") {
+    Drive(dir, speed, steer);
+  } else {
+    Serial.printf("[WARNING] Unknown direction: %s\n", dir.c_str());
+    Park(); // Safety: unknown command = stop
   }
 }
 
