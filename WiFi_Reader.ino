@@ -4,128 +4,94 @@
 
 // Fetch interval in milliseconds
 const unsigned long FETCH_INTERVAL = 100;
-//Helper
-float clampf(float v, float minVal, float maxVal) {
-  if (v < minVal) return minVal;
-  if (v > maxVal) return maxVal;
-  return v;
-}
-//Drive
-void DriveMotorsArcade(String direction, float speed, float steer) {
-  // Clamp inputs
-  speed = clampf(speed, 0.0f, 1.0f);
-  steer = clampf(steer, -1.0f, 1.0f);
 
-  // Convert direction + speed to signed throttle
-  float throttle = 0.0f;
+// Forward declarations for motor functions defined in RC_Car.ino
+extern void Park();
+extern void Drive(String direction, float SpeedFactor, float SteeringFactor);
 
-  if (direction == "forward") {
-    throttle = speed;
-  } 
-  else if (direction == "reverse") {
-    throttle = -speed;
-  } 
-  else { // "neutral"
-    throttle = 0.0f;
-  }
-
-  // Differential mixing
-  float left  = throttle + steer;
-  float right = throttle - steer;
-
-  // Normalize so we never exceed [-1, 1]
-  float maxMag = max(abs(left), abs(right));
-  if (maxMag > 1.0f) {
-    left  /= maxMag;
-    right /= maxMag;
-  }
-
-  // Drive motors
-  Serial.print("left value: ");
-  Serial.print(left);  
-  Serial.print(" right value: ");
-  Serial.println(right);
-  DriveMotorsDirect(left, right);
-}
 // ----------------------------
 // Initialize WiFi connection
-// Call once in main setup()
 // ----------------------------
 void WiFiSetup() {
-  Serial.println("Connecting to WiFi...");
+  Serial.println("\n========================================");
+  Serial.println("       ESP32 RC Car - WiFi Setup");
+  Serial.println("========================================");
 
-  // Connect to WiFi
-  WiFiDrive::begin("Airtel_X25A_72F5", "58BF8F59", "192.168.1.165", 5050);
+  if (!WiFiDrive::begin()) {
+    Serial.println("[ERROR] WiFi setup failed! Motors will be disabled.");
+    Serial.println("[ERROR] Check SSID/password in WiFi_Reader.h");
+    // Don't block - allow car to still be used for testing
+  }
 
-  // Print ESP32 IP
-  Serial.print("ESP32 IP: ");
-  Serial.println(WiFi.localIP());
-
-  // Test connection to server
-  Serial.println("Pinging server...");
+  // Test server connectivity
+  Serial.println("[Init] Testing server connection...");
   WiFiClient client;
-  bool connected = false;
+  bool serverReachable = false;
 
-  for (int i = 0; i < 5; i++) {
-    if (client.connect("192.168.1.165", 5050)) {
-      connected = true;
+  for (int i = 0; i < 3; i++) {
+    if (client.connect(SERVER_IP, SERVER_PORT)) {
+      serverReachable = true;
+      client.stop();
       break;
     }
-    Serial.println("Retry connection...");
+    Serial.printf("[Init] Server connection attempt %d/3 failed\n", i + 1);
     delay(500);
   }
 
-  if (!connected) {
-    Serial.println("Cannot connect to server!");
+  if (serverReachable) {
+    Serial.println("[Init] Server is reachable!");
   } else {
-    Serial.println("Server reachable!");
-    client.stop(); // close connection
+    Serial.println(
+        "[WARNING] Cannot reach server - check if server.py is running");
   }
+
+  Serial.println("========================================");
+  Serial.println("           Setup Complete!");
+  Serial.println("========================================\n");
 }
 
 // ----------------------------
-// Non-blocking fetch from PC
-// Call repeatedly in main loop()
+// Non-blocking WiFi loop
 // ----------------------------
 void WiFiLoop() {
-  // Update WiFi data
+  // Update WiFi data (handles reconnection internally)
   WiFiDrive::update(FETCH_INTERVAL);
+
+  // Safety: If no fresh command, stop the car
+  if (!WiFiDrive::isCommandFresh()) {
+    static bool wasTimeout = false;
+    if (!wasTimeout) {
+      Serial.println("[SAFETY] Command timeout - stopping motors");
+      Park();
+      wasTimeout = true;
+    }
+    return; // Don't process stale data
+  }
+
+  // Reset timeout flag when we get fresh data
+  static bool wasTimeout = false;
+  wasTimeout = false;
 
   // Get latest JSON command
   String jsonCmd = WiFiDrive::getLatestData();
   if (jsonCmd.length() > 0) {
     StaticJsonDocument<200> doc;
     DeserializationError error = deserializeJson(doc, jsonCmd);
-      // if (error) {
-      //   Serial.print("deserializeJson() failed: ");
-      //   Serial.println(error.c_str());
-      //   return;
-      // }
+    if (!error) {
+      String dir = doc["direction"] | "neutral"; // forward, reverse, neutral
+      float speed = doc["speed"] | 0.0;          // 0.0 to 1.0
+      float steer = doc["steering"] | 0.0;       // -1.0 to 1.0
 
-      // serializeJson(doc, Serial);
-      // Serial.println();  // newline    
-      if (!error) {
-        // String dir = doc["direction"] | "neutral"; // forward, reverse, neutral
-        // float speed = doc["speed"] | 0.0;          // 0.0 to 1.0
-        // float steer = doc["steering"] | 0.0;       // -1.0 to 1.0
-        String dir = doc["direction"].as<String>(); // forward, reverse, neutral
-        float speed = doc["speed"].as<float>();          // 0.0 to 1.0
-        float steer = doc["steering"].as<float>();       // -1.0 to 1.0        
-
-        // Use your existing motor functions
-        if (dir == "neutral") {
-          Park();
-        } else {
-          //Drive(dir, speed, steer);
-          DriveMotorsArcade(dir, speed, steer);
-        }
+      // Use your existing motor functions
+      if (dir == "neutral") {
+        Park();
       } else {
-        Serial.println("JSON parse error");
+        Drive(dir, speed, steer);
       }
+    } else {
+      Serial.println("JSON parse error");
+    }
   }
-
-  // Tiny delay to yield
-  delay(1);
 }
 
 
